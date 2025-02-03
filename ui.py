@@ -1,79 +1,127 @@
 import customtkinter as ctk
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from database import add_expense, get_expenses, delete_expense
+import sqlite3
+from collections import defaultdict
 
-# Function to add an expense
-def submit_expense():
-    amount = entry_amount.get()
-    category = entry_category.get()
-    date = entry_date.get()
-    description = entry_description.get()
-    
-    if amount and category and date:
-        add_expense(float(amount), category, date, description)
-        label_status.configure(text="Expense Added!", fg_color="green")
-        refresh_expenses()
-    else:
-        label_status.configure(text="Please fill all fields!", fg_color="red")
-
-# Function to delete an expense
-def remove_expense():
-    selected_id = entry_delete.get()  # Get ID from user input
-    if selected_id.isdigit():
-        delete_expense(int(selected_id))
-        refresh_expenses()
-        label_status.configure(text="Expense Deleted!", fg_color="green")
-    else:
-        label_status.configure(text="Enter a valid expense ID!", fg_color="red")
-
-# Function to refresh the expense list
-def refresh_expenses():
-    for widget in expense_list_frame.winfo_children():
-        widget.destroy()  # Clear previous items
-    
-    expenses = get_expenses()
-    for expense in expenses:
-        label = ctk.CTkLabel(expense_list_frame, text=f"{expense[0]} - {expense[1]} USD | {expense[2]} | {expense[3]}")
-        label.pack(anchor="w", padx=10, pady=2)
-
-# UI Setup
+# App Configuration
 ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
 app = ctk.CTk()
-app.geometry("500x600")
+app.geometry("900x600")
 app.title("Expense Tracker")
 
-label_title = ctk.CTkLabel(app, text="Add Expense", font=("Arial", 20))
-label_title.pack(pady=10)
+# Sidebar Navigation
+sidebar = ctk.CTkFrame(app, width=200, corner_radius=0)
+sidebar.pack(side="left", fill="y")
 
-entry_amount = ctk.CTkEntry(app, placeholder_text="Amount")
-entry_amount.pack(pady=5)
+# Main Content Area
+main_frame = ctk.CTkFrame(app)
+main_frame.pack(side="right", expand=True, fill="both")
 
-entry_category = ctk.CTkEntry(app, placeholder_text="Category")
-entry_category.pack(pady=5)
+# Sidebar Buttons
+def show_dashboard():
+    clear_main_frame()
+    ctk.CTkLabel(main_frame, text="Dashboard", font=("Arial", 24)).pack(pady=20)
+    # Placeholder for analytics and recent transactions
 
-entry_date = ctk.CTkEntry(app, placeholder_text="Date (YYYY-MM-DD)")
-entry_date.pack(pady=5)
 
-entry_description = ctk.CTkEntry(app, placeholder_text="Description (Optional)")
-entry_description.pack(pady=5)
+def show_add_expense():
+    clear_main_frame()
+    ctk.CTkLabel(main_frame, text="Add Expense", font=("Arial", 24)).pack(pady=20)
 
-button_submit = ctk.CTkButton(app, text="Add Expense", command=submit_expense)
-button_submit.pack(pady=10)
+    amount_entry = ctk.CTkEntry(main_frame, placeholder_text="Amount")
+    amount_entry.pack(pady=5)
 
-label_status = ctk.CTkLabel(app, text="")
-label_status.pack(pady=5)
+    category_entry = ctk.CTkEntry(main_frame, placeholder_text="Category")
+    category_entry.pack(pady=5)
 
-# Expense List Frame
-expense_list_frame = ctk.CTkScrollableFrame(app, width=400, height=200)
-expense_list_frame.pack(pady=10, expand=True, fill="both")
+    date_entry = ctk.CTkEntry(main_frame, placeholder_text="Date (YYYY-MM-DD)")
+    date_entry.pack(pady=5)
 
-# Delete Expense Section
-label_delete = ctk.CTkLabel(app, text="Enter ID to Delete:")
-label_delete.pack(pady=5)
-entry_delete = ctk.CTkEntry(app, placeholder_text="Expense ID")
-entry_delete.pack(pady=5)
-button_delete = ctk.CTkButton(app, text="Delete Expense", command=remove_expense)
-button_delete.pack(pady=5)
+    description_entry = ctk.CTkEntry(main_frame, placeholder_text="Description (Optional)")
+    description_entry.pack(pady=5)
 
-refresh_expenses()  # Load existing expenses
+    def submit_expense():
+        add_expense(float(amount_entry.get()), category_entry.get(), date_entry.get(), description_entry.get())
+        ctk.CTkLabel(main_frame, text="Expense Added Successfully!", text_color="green").pack()
+
+    ctk.CTkButton(main_frame, text="Add Expense", command=submit_expense).pack(pady=10)
+
+
+# Analytics Feature
+
+def show_analytics():
+    clear_main_frame()
+    ctk.CTkLabel(main_frame, text="Analytics", font=("Arial", 24)).pack(pady=20)
+
+    # Pie Chart (Spending by Category)
+    expenses = get_expenses()
+    category_data = defaultdict(float)
+
+    for expense in expenses:
+        category_data[expense[2]] += expense[1]
+
+    fig, ax = plt.subplots()
+    ax.pie(category_data.values(), labels=category_data.keys(), autopct='%1.1f%%')
+    ax.set_title('Spending by Category')
+
+    canvas = FigureCanvasTkAgg(fig, master=main_frame)
+    canvas.draw()
+    canvas.get_tk_widget().pack(pady=10)
+
+
+# Group Budgeting Feature
+
+def show_group_budgeting():
+    clear_main_frame()
+    ctk.CTkLabel(main_frame, text="Group Budgeting", font=("Arial", 24)).pack(pady=20)
+
+    group_name_entry = ctk.CTkEntry(main_frame, placeholder_text="Group Name")
+    group_name_entry.pack(pady=5)
+
+    members_entry = ctk.CTkEntry(main_frame, placeholder_text="Add Members (comma-separated)")
+    members_entry.pack(pady=5)
+
+    def create_group():
+        group_name = group_name_entry.get()
+        members = members_entry.get().split(",")
+
+        if group_name and members:
+            ctk.CTkLabel(main_frame, text=f"Group '{group_name}' Created with Members: {', '.join(members)}", text_color="green").pack(pady=5)
+
+    ctk.CTkButton(main_frame, text="Create Group", command=create_group).pack(pady=10)
+
+    ctk.CTkLabel(main_frame, text="Split Expense", font=("Arial", 18)).pack(pady=10)
+
+    total_amount_entry = ctk.CTkEntry(main_frame, placeholder_text="Total Expense Amount")
+    total_amount_entry.pack(pady=5)
+
+    def split_expense():
+        total_amount = float(total_amount_entry.get())
+        members = members_entry.get().split(",")
+        if members and total_amount:
+            split_amount = total_amount / len(members)
+            result = "\n".join([f"{member.strip()}: {split_amount:.2f}" for member in members])
+            ctk.CTkLabel(main_frame, text=f"Split Details:\n{result}", justify="left").pack(pady=5)
+
+    ctk.CTkButton(main_frame, text="Calculate Split", command=split_expense).pack(pady=10)
+
+
+# Clear Main Frame for Navigation
+def clear_main_frame():
+    for widget in main_frame.winfo_children():
+        widget.destroy()
+
+# Sidebar Buttons
+ctk.CTkButton(sidebar, text="Dashboard", command=show_dashboard).pack(pady=10, fill="x")
+ctk.CTkButton(sidebar, text="Add Expense", command=show_add_expense).pack(pady=10, fill="x")
+ctk.CTkButton(sidebar, text="Analytics", command=show_analytics).pack(pady=10, fill="x")
+ctk.CTkButton(sidebar, text="Group Budgeting", command=show_group_budgeting).pack(pady=10, fill="x")
+
+# Load Dashboard by Default
+show_dashboard()
 
 app.mainloop()
