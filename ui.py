@@ -71,6 +71,7 @@ label_delete = ctk.CTkLabel(app, text="Enter ID to Delete:")
 label_delete.pack(pady=5)
 entry_delete = ctk.CTkEntry(app, placeholder_text="Expense ID")
 entry_delete.pack(pady=5)
+
 button_delete = ctk.CTkButton(app, text="Delete Expense", command=remove_expense)
 button_delete.pack(pady=5)
 
