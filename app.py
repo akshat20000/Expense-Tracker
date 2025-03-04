@@ -8,7 +8,7 @@ class App(CTk):
     def __init__(self):
         super().__init__()
         self.geometry("1200x700")
-        self.title("Akshat Pay™")
+        self.title("Wallet Wise")
 
         self.container = CTkFrame(self)
         self.container.pack(side="right", fill="both", expand=True)
