@@ -1,135 +1,132 @@
 import customtkinter as ctk
-from PIL import Image, ImageTk
-from database import add_expense, get_expenses, delete_expense
+from PIL import Image
+from database import add_expense, get_expenses, delete_expense, edit_expense
 import sqlite3
 from collections import defaultdict
 from datetime import datetime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import hashlib
 
 # App Configuration
 ctk.set_appearance_mode("light")
 
-app = ctk.CTk()
-app.geometry("900x600")
-app.title("Expense Tracker")
+class WalletApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.geometry("900x600")
+        self.title("Wallet App - Expense Tracker & Budget Manager")
+        self.auth = Auth()
+        self.logged_in = False
+        self.init_ui()
 
-# Sidebar Toggle Function with Smooth Transition
-def toggle_sidebar():
-    current_width = sidebar.winfo_width()
-    target_width = 200 if current_width == 0 else 0
-    step = 5 if current_width < target_width else -5
-    duration = 2000  # 2 seconds
-    delay = abs(duration // ((target_width - current_width) // step if step != 0 else 1))
+    def hash_password(self, password):
+        return hashlib.sha256(password.encode()).hexdigest()
 
-    def animate():
-        nonlocal current_width
-        if (step > 0 and current_width < target_width) or (step < 0 and current_width > target_width):
-            current_width += step
-            sidebar.configure(width=current_width)
-            app.after(delay, animate)
+    def init_ui(self):
+        self.sidebar = ctk.CTkFrame(self, width=0, height=600)
+        self.sidebar.pack(side="left", fill="y")
+        self.sidebar_visible = False
 
-    animate()
+        self.btn_toggle = ctk.CTkButton(self, text="Toggle Sidebar", command=self.toggle_sidebar)
+        self.btn_toggle.pack(pady=10)
 
-# Hide sidebar initially
-sidebar = ctk.CTkFrame(app, width=0, corner_radius=0, fg_color="#FFD700")
-sidebar.pack(side="left", fill="y")
+        self.btn_report = ctk.CTkButton(self, text="Generate Report", command=self.generate_report)
+        self.btn_report.pack(pady=10)
 
-# Sidebar Content
-name_label = ctk.CTkLabel(sidebar, text="Name", font=("Arial", 14))
-id_label = ctk.CTkLabel(sidebar, text="ID Number", font=("Arial", 12))
-name_label.pack(pady=10)
-id_label.pack()
+        self.btn_backup = ctk.CTkButton(self, text="Backup Data", command=self.backup_data)
+        self.btn_backup.pack(pady=10)
 
-# Main Content Area
-main_frame = ctk.CTkFrame(app, fg_color="#FFFFFF")
-main_frame.pack(side="right", expand=True, fill="both")
+        self.btn_restore = ctk.CTkButton(self, text="Restore Data", command=self.restore_data)
+        self.btn_restore.pack(pady=10)
 
-# Header
-header = ctk.CTkLabel(main_frame, text="Expense Tracker", font=("Arial", 24), text_color="#FFD700")
-header.pack(pady=10)
+        self.login_frame()
 
-# Three-line Menu Button
-menu_icon = ctk.CTkButton(main_frame, text="☰", text_color="#FFD700", width=30, command=toggle_sidebar)
-menu_icon.place(x=10, y=10)
+    def toggle_sidebar(self):
+        if self.sidebar_visible:
+            self.sidebar.pack_forget()
+            self.sidebar_visible = False
+        else:
+            self.sidebar.pack(side="left", fill="y")
+            self.sidebar_visible = True
 
-# Click to Hide Sidebar
-app.bind("<Button-1>", lambda event: toggle_sidebar() if sidebar.winfo_width() > 0 and not sidebar.winfo_containing(event.x_root, event.y_root) else None)
+    def login_frame(self):
+        self.login_window = ctk.CTkFrame(self)
+        self.login_window.pack(pady=100)
 
-# Navigation Buttons
-nav_frame = ctk.CTkFrame(main_frame, fg_color="#FFFFFF")
-nav_frame.pack(pady=20)
+        self.username_entry = ctk.CTkEntry(self.login_window, placeholder_text="Username")
+        self.username_entry.pack(pady=5)
 
-left_frame = ctk.CTkFrame(nav_frame, fg_color="#FFFFFF")
-left_frame.grid(row=0, column=0, padx=20)
-right_frame = ctk.CTkFrame(nav_frame, fg_color="#FFFFFF")
-right_frame.grid(row=0, column=1, padx=20)
+        self.password_entry = ctk.CTkEntry(self.login_window, placeholder_text="Password", show="*")
+        self.password_entry.pack(pady=5)
 
-ctk.CTkButton(left_frame, text="Dashboard", width=150, command=lambda: show_content("dashboard")).pack(pady=10)
-ctk.CTkButton(left_frame, text="Analytics", width=150, command=lambda: show_content("analytics")).pack(pady=10)
+        self.login_btn = ctk.CTkButton(self.login_window, text="Login", command=self.login)
+        self.login_btn.pack(pady=10)
 
-ctk.CTkButton(right_frame, text="Expenses", width=150, command=lambda: show_content("expenses")).pack(pady=10)
-ctk.CTkButton(right_frame, text="Group Budgeting", width=150, command=lambda: show_content("group_budgeting")).pack(pady=10)
+    def login(self):
+        username = self.username_entry.get()
+        password = self.password_entry.get()
+        if self.auth.login(username, password):
+            self.login_window.pack_forget()
+            print("Login Successful")
+        else:
+            print("Invalid Credentials")
 
-# Content Display Function
-def show_content(section):
-    for widget in main_frame.winfo_children():
-        if widget not in [header, nav_frame, menu_icon]:
-            widget.destroy()
-
-    if section == "dashboard":
-        ctk.CTkLabel(main_frame, text="Dashboard Content", font=("Arial", 16)).pack(pady=10)
-
-    elif section == "analytics":
-        analytics_label = ctk.CTkLabel(main_frame, text="Analytics", font=("Arial", 16))
-        analytics_label.pack(pady=10)
-
+    def generate_report(self):
         expenses = get_expenses()
-        total_expense = sum(exp[0] for exp in expenses)
-        ctk.CTkLabel(main_frame, text=f"Total Expenses: {total_expense}").pack()
-
-        # Bar Graph
-        categories = defaultdict(int)
+        categories = defaultdict(float)
         for expense in expenses:
-            amount, category = expense[0], expense[1]  # Safely unpack the first two values
-            categories[category] += int(amount)
-
+            categories[expense[2]] += float(expense[1])
         fig, ax = plt.subplots()
-        ax.bar(categories.keys(), categories.values(), color="#FFD700")
-        ax.set_title("Expenses by Category")
-        ax.set_xlabel("Category")
-        ax.set_ylabel("Amount")
-
-        canvas = FigureCanvasTkAgg(fig, master=main_frame)
-        canvas.draw()
+        ax.pie(categories.values(), labels=categories.keys(), autopct='%1.1f%%')
+        canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.get_tk_widget().pack()
+        canvas.draw()
 
-    elif section == "expenses":
-        expense_frame = ctk.CTkFrame(main_frame)
-        expense_frame.pack(pady=10)
+    def backup_data(self):
+        import shutil
+        shutil.copy("expenses.db", "backup.db")
+        print("Backup Created!")
 
-        amount_entry = ctk.CTkEntry(expense_frame, placeholder_text="Amount")
-        amount_entry.pack(side="left", padx=5)
+    def restore_data(self):
+        import shutil
+        shutil.copy("backup.db", "expenses.db")
+        print("Data Restored!")
 
-        category_entry = ctk.CTkEntry(expense_frame, placeholder_text="Category")
-        category_entry.pack(side="left", padx=5)
+class Auth:
+    def __init__(self):
+        self.conn = sqlite3.connect("expenses.db")
+        self.cursor = self.conn.cursor()
+        self.create_users_table()
 
-        date_entry = ctk.CTkEntry(expense_frame, placeholder_text="Date (YYYY-MM-DD)")
-        date_entry.pack(side="left", padx=5)
+    def create_users_table(self):
+        self.cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL
+        )
+        ''')
+        self.conn.commit()
 
-        def add_new_expense():
-            add_expense(amount_entry.get(), category_entry.get(), date_entry.get())
-            show_content("expenses")
+    def signup(self, username, password):
+        try:
+            hashed_password = hashlib.sha256(password.encode()).hexdigest()
+            self.cursor.execute('INSERT INTO users (username, password) VALUES (?, ?)', (username, hashed_password))
+            self.conn.commit()
+            print(f"User {username} registered successfully!")
+        except sqlite3.IntegrityError:
+            print("Username already exists!")
 
-        ctk.CTkButton(expense_frame, text="Add Expense", command=add_new_expense).pack(side="left", padx=5)
+    def login(self, username, password):
+        hashed_password = hashlib.sha256(password.encode()).hexdigest()
+        self.cursor.execute('SELECT * FROM users WHERE username = ? AND password = ?', (username, hashed_password))
+        user = self.cursor.fetchone()
+        if user:
+            return True
+        else:
+            return False
 
-        expenses = get_expenses()
-        for expense in expenses:
-            expense_label = ctk.CTkLabel(main_frame, text=f"Amount: {expense[0]}, Category: {expense[1]}, Date: {expense[2]}")
-            expense_label.pack()
-
-    elif section == "group_budgeting":
-        ctk.CTkLabel(main_frame, text="Group Budgeting Content", font=("Arial", 16)).pack(pady=10)
-        ctk.CTkLabel(main_frame, text="Feature under development").pack()
-
-app.mainloop()
+if __name__ == "__main__":
+    app = WalletApp()
+    app.mainloop()
