@@ -1,11 +1,24 @@
-import customtkinter as ctk
+from customtkinter import *
 
-class Dashboard:
-    def __init__(self, parent):
-        self.frame = ctk.CTkFrame(parent)
-        self.frame.pack(fill="both", expand=True)
+class Dashboard(CTkFrame):
+    def __init__(self, parent, username, current_holdings):
+        super().__init__(parent)
+        self.pack(fill="both", expand=True)
+        
+        # Welcome message with username
+        self.welcome_label = CTkLabel(self, text=f"Welcome, {username}!", font=("Arial", 24))
+        self.welcome_label.pack(pady=20)
+        
+        # Display current holdings
+        self.holdings_label = CTkLabel(self, text=f"Current Holdings: ₹{current_holdings}", font=("Arial", 20))
+        self.holdings_label.pack(pady=10)
 
-        ctk.CTkLabel(self.frame, text="Dashboard", font=("Arial", 24)).pack(pady=20)
-        ctk.CTkButton(self.frame, text="View Expenses").pack(pady=10)
-        ctk.CTkButton(self.frame, text="Set Budget").pack(pady=10)
-        ctk.CTkButton(self.frame, text="Generate Report").pack(pady=10)
+        # Placeholder for future widgets
+        self.info_label = CTkLabel(self, text="Your financial summary will appear here.", font=("Arial", 16))
+        self.info_label.pack(pady=20)
+
+if __name__ == "__main__":
+    root = CTk()
+    root.geometry("1200x700")
+    Dashboard(root, "Akshat", 5000).pack(fill="both", expand=True)
+    root.mainloop()
