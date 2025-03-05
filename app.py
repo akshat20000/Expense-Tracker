@@ -16,17 +16,20 @@ class App(CTk):
         self.auth = Auth(self.container, self.show_dashboard)
         self.auth.signup_screen()  # Start With Signup Screen
 
-    def show_page(self, page):
-        for widget in self.container.winfo_children():
-            widget.destroy()
-        page(self.container).pack(fill="both", expand=True)
+    def show_page(self, page, *args):
+        if self.container.winfo_children():
+            for widget in self.container.winfo_children():
+                widget.destroy()
+        page_instance = page(self.container, *args)
+        page_instance.pack(fill="both", expand=True)
 
     def show_dashboard(self):
-        for widget in self.container.winfo_children():
-            widget.destroy()
+        if self.container.winfo_children():
+            for widget in self.container.winfo_children():
+                widget.destroy()
         self.sidebar = Sidebar(self, self.show_page)
         self.sidebar.pack(side="left", fill="y")
-        self.show_page(Dashboard)
+        self.show_page(Dashboard, "Akshat", 5000)  # Akshat Username aur Holdings
 
 
 if __name__ == "__main__":
